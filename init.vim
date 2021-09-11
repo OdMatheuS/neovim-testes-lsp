@@ -125,6 +125,12 @@ for _, lsp in ipairs(servers) do
   }
 end
 
+ require'nvim-treesitter.configs'.setup {
+    ensure_installed = "maintained",
+    ignore_install = { "javascript" },
+    highlight = { enable = true },
+  }
+
 EOF
 
 let g:gruvbox_contrast_dark = 'hard'
@@ -137,7 +143,7 @@ let g:gruvbox_invert_selection='0'
 colorscheme gruvbox
 set background=dark
 
-set completeopt=menuone,noselect
+set completeopt=menuone,noselect,noinsert
 let g:completion_matching_strategy_list = ['exact', 'substring', 'fuzzy']
 
 ".:*~*:._.:*~*:._.:*~*:._.:*~*:._.:*~*:._.:*~*:._.:*~*:._.:*~*:.
