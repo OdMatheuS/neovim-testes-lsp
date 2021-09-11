@@ -48,28 +48,15 @@ Plug 'vim-airline/vim-airline'
 call plug#end()
 
 lua << EOF
-local saga = require 'lspsaga'
-saga.init_lsp_saga {
-  error_sign = '',
-  warn_sign = '',
-  hint_sign = '',
-  infor_sign = '',
-  border_style = "round",
-}
 
-  require'lspconfig'.tsserver.setup {
-    on_attach=require'completion'.on_attach,
-    capabilities = capabilities,
+local saga = require 'lspsaga'
+  saga.init_lsp_saga {
+    error_sign = '☢',
+    warn_sign = '‼️',
+    hint_sign = '✔️',
+    infor_sign = '⚑',
   }
-    cmd = { "typescript-language-server", "--stdio" }
-    filetypes = {
-      "javascript",
-      "javascriptreact",
-      "javascript.jsx",
-      "typescript",
-      "typescriptreact",
-      "typescript.tsx"
-    }
+
 
   --Enable (broadcasting) snippet capability for completion
   local capabilities = vim.lsp.protocol.make_client_capabilities()
@@ -81,15 +68,11 @@ saga.init_lsp_saga {
 
   require'nvim-treesitter.configs'.setup { highlight = { enable = true } }
 
-  local nvim_lsp = require('lspconfig')
 
--- Use an on_attach function to only map the following keys
--- after the language server attaches to the current buffer
-local on_attach = function(client, bufnr)
+local on_attach = function(_, bufnr)
   local function buf_set_keymap(...) vim.api.nvim_buf_set_keymap(bufnr, ...) end
   local function buf_set_option(...) vim.api.nvim_buf_set_option(bufnr, ...) end
 
-  -- Enable completion triggered by <c-x><c-o>
   buf_set_option('omnifunc', 'v:lua.vim.lsp.omnifunc')
 
   -- Mappings.
@@ -113,23 +96,19 @@ local on_attach = function(client, bufnr)
   buf_set_keymap('n', '<space>q', '<cmd>lua vim.lsp.diagnostic.set_loclist()<CR>', opts)
   buf_set_keymap('n', 'gf', '<cmd>lua vim.lsp.buf.formatting()<CR>', opts)
 
+local servers = { 'tsserver','html','angular' }
+
 end
 
-local servers = { 'tsserver','html' }
-for _, lsp in ipairs(servers) do
-  nvim_lsp[lsp].setup {
-    on_attach = on_attach,
-    flags = {
-      debounce_text_changes = 50,
-    }
-  }
-end
+ require'lspsaga'.init_lsp_saga()
 
- require'nvim-treesitter.configs'.setup {
-    ensure_installed = "maintained",
-    ignore_install = { "javascript" },
-    highlight = { enable = true },
-  }
+ require'lspinstall'.setup()
+
+ local servers = require'lspinstall'.installed_servers()
+
+ for _, server in pairs(servers) do
+   require'lspconfig'[server].setup{ on_attach = on_attach }
+ end
 
 EOF
 
@@ -186,12 +165,12 @@ let g:neoformat_enabled_typescript = ['prettier']
 
 augroup NeoformatAutoFormat
   autocmd!
-  autocmd FileType javascript,javascript.jsx,typescript.tsx setlocal formatprg=prettier\
+  autocmd FileType javascript,javascript.jsx setlocal formatprg=prettier\
         \--stdin\
         \--print-width\ 80\
         \--single-quote\
         \--trailing-comma\ es5
-  autocmd BufWritePre *.js,*.jsx,*.tsx,*.json Neoformat
+  autocmd BufWritePre *.js,*.jsx Neoformat
 augroup END
 
 " my Settings VIM start
@@ -323,3 +302,31 @@ let g:airline_symbols.readonly = ''
 let g:airline_symbols.linenr = '   '
 let g:airline_symbols.maxlinenr = ' ⚡ '
 let g:airline_symbols.dirty='⚡'
+
+" FZF
+let $FZF_DEFAULT_COMMAND='rg --files --follow --hidden'
+let g:fzf_action = {
+      \ 'ctrl-l': 'tab split',
+      \ 'ctrl-s': 'split',
+      \ 'ctrl-v': 'vsplit'
+      \}
+
+
+" Airline
+   let g:airline_powerline_fonts = 1
+   let g:airline#extensions#tabline#enabled = 1
+   let g:airline#extensions#tabline#formatter = 'unique_tail'
+   let g:airline#extensions#tabline#fnamemod = ':t'
+   let g:airline#extensions#tabline#tabs_label = ''
+   let g:airline#extensions#tabline#buffer_nr_show = 0
+   let g:airline#extensions#tabline#buffers_label = ''
+   let g:airline#extensions#tabline#show_close_button = 0
+   let g:airline#extensions#tabline#show_buffers = 0
+   let g:airline#extensions#tabline#show_tab_count = 0
+   let g:airline#extensions#tabline#show_buffers = 0
+   let g:airline#extensions#tabline#show_splits = 0
+   let g:airline#extensions#tabline#show_tab_nr = 0
+   let g:airline#extensions#tabline#show_tab_type = 0
+
+autocmd BufWritePre *.js lua vim.lsp.buf.formatting_sync(nil, 100)
+autocmd BufWritePre *.jsx lua vim.lsp.buf.formatting_sync(nil, 100)
