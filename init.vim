@@ -1,12 +1,10 @@
 call plug#begin('~/.config/nvim/plugged')
 Plug 'neovim/nvim-lspconfig'
-"Plug 'anott03/nvim-lspinstall'
+Plug 'anott03/nvim-lspinstall'
 Plug 'nvim-lua/completion-nvim'
 Plug 'hrsh7th/nvim-compe'
 Plug 'ray-x/lsp_signature.nvim'
 Plug 'glepnir/lspsaga.nvim'
-Plug 'kabouzeid/nvim-lspinstall'
-
 
 "Git and FZF
 Plug 'scrooloose/nerdtree'
@@ -50,56 +48,88 @@ Plug 'vim-airline/vim-airline'
 call plug#end()
 
 lua << EOF
-local on_attach = function(_, bufnr)
-   local function buf_set_keymap(...) vim.api.nvim_buf_set_keymap(bufnr, ...) end
-   local function buf_set_option(...) vim.api.nvim_buf_set_option(bufnr, ...) end
-   buf_set_option('omnifunc', 'v:lua.vim.lsp.omnifunc')
+local saga = require 'lspsaga'
+saga.init_lsp_saga {
+  error_sign = '',
+  warn_sign = '',
+  hint_sign = '',
+  infor_sign = '',
+  border_style = "round",
+}
 
-   local opts = { noremap = true, silent = true }
-   buf_set_keymap('n', 'K', ':Lspsaga hover_doc<CR>', opts)
-   buf_set_keymap('n', 'gtt', ':Lspsaga diagnostic_jump_next<CR>', opts)
-   buf_set_keymap('n', 'gt', ':Lspsaga diagnostic_jump_prev<CR>', opts)
-   buf_set_keymap('n', '<C-k>', ':Lspsaga signature_help<CR>', opts)
-   buf_set_keymap('n', 'gf', '<cmd>lua vim.lsp.buf.formatting()<CR>', opts)
-   --buf_set_keymap('n', '<leader>ca', ':Lspsaga code_action<CR>', opts)
-   --buf_set_keymap('v', '<leader>ca', ':Lspsaga range_code_action<CR>', opts)
-   --buf_set_keymap('n', '<leader>rn', ':Lspsaga rename<CR>', opts)
-   --buf_set_keymap('n', 'gf', ':lua vim.lsp.buf.definition()<CR>', opts)
-   --buf_set_keymap('n', '<C-k>', '<cmd>lua vim.lsp.buf.signature_help()<CR>', opts)
- end
+  require'lspconfig'.tsserver.setup {
+    on_attach=require'completion'.on_attach,
+    capabilities = capabilities,
+  }
+    cmd = { "typescript-language-server", "--stdio" }
+    filetypes = {
+      "javascript",
+      "javascriptreact",
+      "javascript.jsx",
+      "typescript",
+      "typescriptreact",
+      "typescript.tsx"
+    }
 
- require'lspsaga'.init_lsp_saga()
- require'lspinstall'.setup()
- local servers = require'lspinstall'.installed_servers()
- for _, server in pairs(servers) do
-   require'lspconfig'[server].setup{ on_attach = on_attach }
- end
-
- require'lspconfig'.tsserver.setup {
-   on_attach = on_attach,
-   settings = {
-     Lua = {
-       diagnostics = {
-         globals = { 'vim' }
-       }
-     }
-   }
- }
-
- local capabilities = vim.lsp.protocol.make_client_capabilities()
+  --Enable (broadcasting) snippet capability for completion
+  local capabilities = vim.lsp.protocol.make_client_capabilities()
   capabilities.textDocument.completion.completionItem.snippetSupport = true
 
   require'lspconfig'.html.setup {
     capabilities = capabilities,
   }
 
+  require'nvim-treesitter.configs'.setup { highlight = { enable = true } }
 
-  require'nvim-treesitter.configs'.setup {
+  local nvim_lsp = require('lspconfig')
+
+-- Use an on_attach function to only map the following keys
+-- after the language server attaches to the current buffer
+local on_attach = function(client, bufnr)
+  local function buf_set_keymap(...) vim.api.nvim_buf_set_keymap(bufnr, ...) end
+  local function buf_set_option(...) vim.api.nvim_buf_set_option(bufnr, ...) end
+
+  -- Enable completion triggered by <c-x><c-o>
+  buf_set_option('omnifunc', 'v:lua.vim.lsp.omnifunc')
+
+  -- Mappings.
+  local opts = { noremap=true, silent=true }
+
+  buf_set_keymap('n', 'gD', '<cmd>lua vim.lsp.buf.declaration()<CR>', opts)
+  buf_set_keymap('n', 'gd', '<cmd>lua vim.lsp.buf.definition()<CR>', opts)
+  --buf_set_keymap('n', 'K', '<cmd>lua vim.lsp.buf.hover()<CR>', opts)
+  buf_set_keymap('n', 'gi', '<cmd>lua vim.lsp.buf.implementation()<CR>', opts)
+  --buf_set_keymap('n', '<C-k>', '<cmd>lua vim.lsp.buf.signature_help()<CR>', opts)
+  buf_set_keymap('n', '<space>wa', '<cmd>lua vim.lsp.buf.add_workspace_folder()<CR>', opts)
+  buf_set_keymap('n', '<space>wr', '<cmd>lua vim.lsp.buf.remove_workspace_folder()<CR>', opts)
+  buf_set_keymap('n', '<space>wl', '<cmd>lua print(vim.inspect(vim.lsp.buf.list_workspace_folders()))<CR>', opts)
+  buf_set_keymap('n', '<space>D', '<cmd>lua vim.lsp.buf.type_definition()<CR>', opts)
+  buf_set_keymap('n', '<space>rn', '<cmd>lua vim.lsp.buf.rename()<CR>', opts)
+  buf_set_keymap('n', '<space>ca', '<cmd>lua vim.lsp.buf.code_action()<CR>', opts)
+  buf_set_keymap('n', 'gr', '<cmd>lua vim.lsp.buf.references()<CR>', opts)
+  buf_set_keymap('n', '<space>e', '<cmd>lua vim.lsp.diagnostic.show_line_diagnostics()<CR>', opts)
+  buf_set_keymap('n', 'gtt', '<cmd>lua vim.lsp.diagnostic.goto_next()<CR>', opts)
+  buf_set_keymap('n', 'gt', '<cmd>lua vim.lsp.diagnostic.goto_prev()<CR>', opts)
+  buf_set_keymap('n', '<space>q', '<cmd>lua vim.lsp.diagnostic.set_loclist()<CR>', opts)
+  buf_set_keymap('n', 'gf', '<cmd>lua vim.lsp.buf.formatting()<CR>', opts)
+
+end
+
+local servers = { 'tsserver','html' }
+for _, lsp in ipairs(servers) do
+  nvim_lsp[lsp].setup {
+    on_attach = on_attach,
+    flags = {
+      debounce_text_changes = 50,
+    }
+  }
+end
+
+ require'nvim-treesitter.configs'.setup {
     ensure_installed = "maintained",
     ignore_install = { "javascript" },
     highlight = { enable = true },
   }
-
 
 EOF
 
@@ -124,8 +154,8 @@ nnoremap <leader>ps :lua require('telescope.builtin').grep_string({ search = vim
 nnoremap <Leader>+ :vertical resize +25<CR>
 nnoremap <Leader>- :vertical resize -25<CR>
 nnoremap <Leader>gzq :resize 100<CR>
-"inoremap <silent> <C-k> <Cmd>Lspsaga signature_help<CR>
-"nnoremap <silent>K :Lspsaga hover_doc<CR>
+inoremap <silent> <C-k> <Cmd>Lspsaga signature_help<CR>
+nnoremap <silent>K :Lspsaga hover_doc<CR>
 
 ".:*~*:._.:*~*:._.:*~*:._.:*~*:._.:*~*:._.:*~*:._.:*~*:._.:*~*:.
 "Remove WhiteSpaces Thanks ThePrimeagen
@@ -161,7 +191,7 @@ augroup NeoformatAutoFormat
         \--print-width\ 80\
         \--single-quote\
         \--trailing-comma\ es5
-  autocmd BufWritePre *.js,*.jsx,*.tsx,*.json  Neoformat
+  autocmd BufWritePre *.js,*.jsx,*.tsx,*.json Neoformat
 augroup END
 
 " my Settings VIM start
@@ -211,11 +241,11 @@ set wildignore+=*_build/*
 set wildignore+=**/node_modules/*
 set wildignore+=**/.git/*
 
-set updatetime=100
+set updatetime=50
 
-set statusline+=%{exists('g:loaded_fugitive')?fugitive#statusline():''}
+"set statusline+=%{exists('g:loaded_fugitive')?fugitive#statusline():''}
 "define the set of names to be displayed instead of a specific filetypes
-"set statusline+=%{airline#util#wrap(airline#extensions#branch#get_head(),50)}
+set statusline+=%{airline#util#wrap(airline#extensions#branch#get_head(),50)}
 
 set listchars=tab:\ \ ,eol:¬
 
@@ -293,32 +323,3 @@ let g:airline_symbols.readonly = ''
 let g:airline_symbols.linenr = '   '
 let g:airline_symbols.maxlinenr = ' ⚡ '
 let g:airline_symbols.dirty='⚡'
-
-" FZF
-let $FZF_DEFAULT_COMMAND='rg --files --follow --hidden'
-let g:fzf_action = {
-      \ 'ctrl-l': 'tab split',
-      \ 'ctrl-s': 'split',
-      \ 'ctrl-v': 'vsplit'
-      \}
-
-
-" Airline
-   let g:airline_powerline_fonts = 1
-   let g:airline#extensions#tabline#enabled = 1
-   let g:airline#extensions#tabline#formatter = 'unique_tail'
-   let g:airline#extensions#tabline#fnamemod = ':t'
-   let g:airline#extensions#tabline#tabs_label = ''
-   let g:airline#extensions#tabline#buffer_nr_show = 0
-   let g:airline#extensions#tabline#buffers_label = ''
-   let g:airline#extensions#tabline#show_close_button = 0
-   let g:airline#extensions#tabline#show_buffers = 0
-   let g:airline#extensions#tabline#show_tab_count = 0
-   let g:airline#extensions#tabline#show_buffers = 0
-   let g:airline#extensions#tabline#show_splits = 0
-   let g:airline#extensions#tabline#show_tab_nr = 0
-   let g:airline#extensions#tabline#show_tab_type = 0
-
-"autocmd BufWritePre *.js lua vim.lsp.buf.formatting_sync(nil, 5)
-"autocmd BufWritePre *.json lua vim.lsp.buf.formatting_sync(nil, 5)
-"autocmd BufWritePre *.jsx lua vim.lsp.buf.formatting_sync(nil, 100)
